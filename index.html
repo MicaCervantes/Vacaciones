@@ -66,7 +66,7 @@ select,input{width:100%;font:inherit;padding:7px;border:1px solid var(--bd);bord
     <label>Comercial</label><select id="who"></select>
     <div class="row"><div><label>Desde</label><input type="date" id="from"></div><div><label>Hasta</label><input type="date" id="to"></div></div>
     <label>Nota (opcional)</label><input id="note" maxlength="60" placeholder="Ej: viaje familiar">
-    <div class="sub" style="margin-top:8px">🔒 Si tus fechas se cruzan con las de otra persona, se envían como <b>solicitud pendiente</b> para que Guillermo (gerente) la apruebe o acuerde moverlas. Solo él puede aprobar, mover o eliminar.</div>
+    <div class="sub" style="margin-top:8px">🔒 Toda solicitud queda <b>pendiente</b> hasta que Guillermo (gerente) la apruebe. Si tus fechas se cruzan con las de otra persona, se marca para que él acuerde con ustedes. Solo él puede aprobar, mover o eliminar.</div>
     <div style="margin-top:10px"><button class="pri" id="add">Guardar</button></div>
     <div id="msg"></div>
   </section>
@@ -111,7 +111,7 @@ const dIso=v=>{const n=Number(v);return(!isNaN(n)&&n>20000&&n<100000)?new Date(M
 const tsMs=v=>{const n=Number(v)||0;return(n>20000&&n<100000)?Math.round((n-25569)*864e5):n};
 async function load(){
   const rows=await call(FLOW_LISTAR)||[];
-  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||"",st:r.Estado==="Pendiente"?"Pendiente":"Aprobado"}));
+  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||"",st:r.Estado==="Aprobado"?"Aprobado":"Pendiente",ap:tsMs(r.AprobadoEl)}));
   $("mode").textContent="🟢 En vivo: todo el equipo ve los mismos datos (se actualiza cada 8 s)";render();
 }
 async function init(){
@@ -124,7 +124,7 @@ async function init(){
 }
 function fallback(){$("mode").textContent="Modo local: los datos solo se guardan en este navegador";vacs=lsGet();render()}
 async function save(v){
-  if(cloud){try{await call(FLOW_AGREGAR,{id:v.id,comercial:BY[v.p].n,desde:v.from,hasta:v.to,nota:v.note||"",clave:"-",estado:v.st||"Aprobado"});await load();return}catch(e){alert("No se pudo guardar en la nube. Intenta de nuevo.");return}}
+  if(cloud){try{await call(FLOW_AGREGAR,{id:v.id,comercial:BY[v.p].n,desde:v.from,hasta:v.to,nota:v.note||"",clave:"-",estado:v.st||"Pendiente"});await load();return}catch(e){alert("No se pudo guardar en la nube. Intenta de nuevo.");return}}
   vacs.push(v);lsSet();render();
 }
 async function remove(id,clave){
@@ -183,12 +183,12 @@ function renderCal(){
 function renderDetail(){
   if(!sel){$("detail").innerHTML='<div class="sub">Toca un día para ver quién está de vacaciones.</div>';return}
   const ps=peopleOn(sel);
-  $("detail").innerHTML=`<h2>${fmt(sel)}</h2>`+(ps.length?ps.map((p,i)=>`<div class="item"><span class="dot" style="background:${BY[p].c}"></span><span class="t">${ps.length>1?(i+1)+". ":""}${esc(BY[p].n)}${ps.length>1&&i===0?" ✅ prioridad":""}<br><span class="sub">Registrado: ${fmtTs(tsOn(p,sel))}</span></span></div>`).join("")+(ps.length>1?`<div class="cf" style="margin-top:6px">⚠️ Cruce: ${ps.length} personas fuera este día</div>`:""):'<div class="empty">Nadie de vacaciones este día.</div>');
+  $("detail").innerHTML=`<h2>${fmt(sel)}</h2>`+(ps.length?ps.map((p,i)=>`<div class="item"><span class="dot" style="background:${BY[p].c}"></span><span class="t">${ps.length>1?(i+1)+". ":""}${esc(BY[p].n)} ${pendOn(p,sel)?'<span class="badge pe">⏳ Pendiente</span>':'<span class="badge ap">✅ Aprobado</span>'}${ps.length>1&&i===0?" ✅ prioridad":""}<br><span class="sub">Registrado: ${fmtTs(tsOn(p,sel))}</span></span></div>`).join("")+(ps.length>1?`<div class="cf" style="margin-top:6px">⚠️ Cruce: ${ps.length} personas fuera este día</div>`:""):'<div class="empty">Nadie de vacaciones este día.</div>');
 }
 function itemHtml(v){
   const pe=v.st==="Pendiente",id=esc(v.id);
   const acts=admin?`<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">${pe?`<button data-act="ok" data-id="${id}">✅ Aprobar</button>`:""}<button data-act="mov" data-id="${id}">📅 Mover fechas</button><button data-act="del" data-id="${id}">🗑 Eliminar</button></div>`:"";
-  return `<div class="item"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b> <span class="badge ${pe?"pe":"ap"}">${pe?"⏳ Pendiente":"✅ Aprobado"}</span><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span>${acts}</div></div>`;
+  return `<div class="item"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b> <span class="badge ${pe?"pe":"ap"}">${pe?"⏳ Pendiente":"✅ Aprobado"}</span><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span>${!pe&&v.ap?`<br><span class="sub">✅ Aprobado por Guillermo: ${fmtTs(v.ap)}</span>`:""}${acts}</div></div>`;
 }
 function renderSide(){
   const cs=conflicts().filter(c=>c.end>=TODAY);
@@ -225,7 +225,7 @@ async function actualizar(id,desde,hasta,estado){
     try{await call(FLOW_ACTUALIZAR,{id,desde,hasta,estado,clave:admin});await load();return}
     catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo Guillermo puede hacer esto.")}else alert("No se pudo actualizar. Intenta de nuevo.");return}
   }
-  Object.assign(v,{from:desde,to:hasta,st:estado});lsSet();render();
+  Object.assign(v,{from:desde,to:hasta,st:estado,ap:Date.now()});lsSet();render();
 }
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]");if(!b||!admin)return;
@@ -247,9 +247,9 @@ $("add").onclick=async()=>{
   const ov=vacs.filter(v=>v.p!==p&&v.from<=t&&v.to>=f&&BY[v.p]);
   const names=[...new Set(ov.map(v=>BY[v.p].n))];
   if(names.length&&!confirm("Estas fechas se cruzan con: "+names.join(", ")+".\n\nTu registro se enviará como SOLICITUD PENDIENTE para que Guillermo la apruebe o acuerden mover las fechas.\n¿Enviar la solicitud?"))return;
-  await save({id:"v"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p,from:f,to:t,note:$("note").value.trim(),ts:Date.now(),h:"",st:names.length?"Pendiente":"Aprobado"});
+  await save({id:"v"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p,from:f,to:t,note:$("note").value.trim(),ts:Date.now(),h:"",st:"Pendiente"});
   m.style.color=names.length?"var(--warn)":"inherit";
-  m.textContent=names.length?"⏳ Solicitud enviada. Se cruza con: "+names.join(", ")+". Queda pendiente de aprobación de Guillermo.":"Guardado y aprobado ✔";
+  m.textContent=names.length?"⏳ Solicitud enviada. Se cruza con: "+names.join(", ")+". Queda pendiente de aprobación de Guillermo.":"⏳ Solicitud enviada. Queda pendiente de aprobación de Guillermo.";
   $("note").value="";cur=new Date(Date.UTC(+f.slice(0,4),+f.slice(5,7)-1,1));sel=f;render();
 };
 init();
