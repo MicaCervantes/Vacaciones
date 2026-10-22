@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vacaciones del equipo comercial</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mu:#6b7385;--bd:#e3e6ec;--warn:#d93025;--warnbg:#fdecea;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--card:#1e222b;--tx:#eceff4;--mu:#9aa3b5;--bd:#303644;--warn:#ff6b5e;--warnbg:#3a1f1d}}
+:root[data-theme="dark"]{--bg:#14171d;--card:#1e222b;--tx:#eceff4;--mu:#9aa3b5;--bd:#303644;--warn:#ff6b5e;--warnbg:#3a1f1d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:900px){main{grid-template-columns:2fr 1fr}}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.sub{color:var(--mu);font-size:12px}
+.nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.nav b{flex:1;text-align:center;font-size:16px;text-transform:capitalize}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:6px 12px}
+button.pri{background:#2563eb;border-color:#2563eb;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.dow{text-align:center;font-size:11px;color:var(--mu);padding:2px 0}
+.day{min-height:78px;border:1px solid var(--bd);border-radius:8px;padding:3px;display:flex;flex-direction:column;gap:2px;cursor:pointer;overflow:hidden}
+.day.out{opacity:.4}.day.today{box-shadow:inset 0 0 0 2px #2563eb}.day.sel{background:var(--bg)}
+.day.conf{border-color:var(--warn);background:var(--warnbg)}
+.dn{font-size:11px;color:var(--mu);display:flex;justify-content:space-between}
+.dn i{font-style:normal;color:var(--warn);font-weight:700}
+.bar{font-size:10px;color:#fff;border-radius:4px;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:15px}
+.more{font-size:10px;color:var(--mu)}
+@media(max-width:600px){.day{min-height:54px}.bar{font-size:0;height:6px;line-height:6px;padding:0}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--bd);border-radius:20px;padding:3px 10px 3px 6px;font-size:12px;cursor:pointer;user-select:none}
+.chip.off{opacity:.35}.dot{width:12px;height:12px;border-radius:50%;flex:none}
+label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
+select,input{width:100%;font:inherit;padding:7px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.item{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--bd);font-size:13px}
+.item:first-child{border-top:0}.item .t{flex:1;min-width:0}
+.x{padding:2px 8px;color:var(--mu)}
+.cf{background:var(--warnbg);border-left:4px solid var(--warn);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:13px}
+.empty{color:var(--mu);font-size:13px}
+.side{display:grid;gap:16px;align-content:start}
+#msg{font-size:12px;margin-top:6px;min-height:16px}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>🏖️ Vacaciones del equipo comercial</h1><div class="sub" id="mode"></div></div></header>
+
+<section class="card">
+  <div class="nav"><button id="prev">‹</button><b id="title"></b><button id="next">›</button><button id="today">Hoy</button></div>
+  <div class="chips" id="chips" style="margin-bottom:10px"></div>
+  <div class="grid" id="cal"></div>
+  <div id="detail" style="margin-top:12px"></div>
+</section>
+
+<div class="side">
+  <section class="card">
+    <h2>Registrar vacaciones</h2>
+    <label>Comercial</label><select id="who"></select>
+    <div class="row"><div><label>Desde</label><input type="date" id="from"></div><div><label>Hasta</label><input type="date" id="to"></div></div>
+    <label>Nota (opcional)</label><input id="note" maxlength="60" placeholder="Ej: viaje familiar">
+    <div class="sub" style="margin-top:8px">🔒 Solo Guillermo (gerente) puede modificar o eliminar registros. Cada registro guarda fecha y hora; si hay cruce, tiene prioridad quien registró primero.</div>
+    <div style="margin-top:10px"><button class="pri" id="add">Guardar</button></div>
+    <div id="msg"></div>
+  </section>
+  <section class="card"><h2>⚠️ Cruces de fechas</h2><div id="conf"></div></section>
+  <section class="card"><h2>Vacaciones registradas</h2><div id="list"></div></section>
+</div>
+</main>
+
+<script>
+const TEAM=[["Guillermo Godiño","#e6194b"],["Marco Almestar","#3cb44b"],["Milagros Santillan","#4363d8"],["Sofia Vegas","#f58231"],["Oscar Mestanza","#911eb4"],["Judith Ortiz","#0aa5a5"],["Roxana Laynes","#d6336c"],["Aixa Montalvan","#8a6d00"],["Cesar Olivera","#2f9e44"],["Miguel Castro","#1c7ed6"],["Lucero Vergara","#a0522d"],["Micaela Cervantes","#5c6370"],["Bruno Ruiz","#d4a017"],["Pedro Madrid","#7c4dff"]].map(([n,c],i)=>({id:"c"+i,n,c}));
+const BY=Object.fromEntries(TEAM.map(t=>[t.id,t]));
+const $=id=>document.getElementById(id);
+const MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"];
+const iso=d=>d.toISOString().slice(0,10);
+const parse=s=>new Date(s+"T00:00:00Z");
+const fmt=s=>{const d=parse(s);return d.getUTCDate()+" "+MES[d.getUTCMonth()].slice(0,3)+" "+d.getUTCFullYear()};
+const first=n=>n.split(" ")[0];
+const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let vacs=[],hidden=new Set(),sel=null,db=null;
+const now=new Date();let cur=new Date(Date.UTC(now.getFullYear(),now.getMonth(),1));
+const TODAY=iso(new Date(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())));
+
+// ---- storage (shared via db; localStorage fallback) ----
+function lsGet(){try{return JSON.parse(localStorage.getItem("vac")||"[]")}catch(e){return[]}}
+function lsSet(){try{localStorage.setItem("vac",JSON.stringify(vacs))}catch(e){}}
+// >>> PEGA AQUÍ las 3 URL de tus flujos de Power Automate <<<
+const FLOW_LISTAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/18/workflows/4b2d249f61954eaf978f305dcebb7cd1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=1ZzZCQBwRmJnp1NFVBrplmqeUJGSQRd6J6J_VdrTj10";
+const FLOW_AGREGAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/6848aa1b87d74414872429a3149a1954/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dLdgGy0b5dxzMjx_ZGuL1cWakAIs6uUDKoDyZrravw0";
+const FLOW_ELIMINAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/29/workflows/a6b8341fed8240df929768e68201ba3a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rhTfhNaLenyWGgn8CNO1ciMDXESG77pSmQJZsXmcy6g";
+let cloud=false;
+const idByName=Object.fromEntries(TEAM.map(t=>[t.n,t.id]));
+async function call(url,params){
+  const u=new URL(url);Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);
+  const t=await r.text();return t?JSON.parse(t):null;
+}
+// Si Excel convirtió fechas a números de serie, los transforma de vuelta
+const dIso=v=>{const n=Number(v);return(!isNaN(n)&&n>20000&&n<100000)?new Date(Math.round((n-25569)*864e5)).toISOString().slice(0,10):String(v).slice(0,10)};
+const tsMs=v=>{const n=Number(v)||0;return(n>20000&&n<100000)?Math.round((n-25569)*864e5):n};
+async function load(){
+  const rows=await call(FLOW_LISTAR)||[];
+  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||""}));
+  $("mode").textContent="🟢 En vivo: todo el equipo ve los mismos datos (se actualiza cada 8 s)";render();
+}
+async function init(){
+  vacs=lsGet();render();
+  if(FLOW_LISTAR&&FLOW_AGREGAR&&FLOW_ELIMINAR){
+    try{await load();cloud=true;
+      setInterval(()=>{if(!document.hidden)load().catch(()=>{})},8000);return}catch(e){}
+  }
+  fallback();
+}
+function fallback(){$("mode").textContent="Modo local: los datos solo se guardan en este navegador";vacs=lsGet();render()}
+async function save(v){
+  if(cloud){try{await call(FLOW_AGREGAR,{id:v.id,comercial:BY[v.p].n,desde:v.from,hasta:v.to,nota:v.note||"",clave:"-"});await load();return}catch(e){alert("No se pudo guardar en la nube. Intenta de nuevo.");return}}
+  vacs.push(v);lsSet();render();
+}
+async function remove(id,clave){
+  if(cloud){try{await call(FLOW_ELIMINAR,{id,clave});await load();return}
+    catch(e){alert(/403/.test(e.message)?"Clave incorrecta. Solo Guillermo puede eliminar registros.":"No se pudo eliminar. Intenta de nuevo.");return}}
+  vacs=vacs.filter(v=>v.id!==id);lsSet();render();
+}
+
+async function hash(x){try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("vac|"+x));return[...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,"0")).join("")}catch(e){let h=5381;for(const c of "vac|"+x)h=((h<<5)+h+c.charCodeAt(0))|0;return"f"+h}}
+const fmtTs=t=>t?new Date(t).toLocaleString("es-PE",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"sin fecha";
+// ---- logic ----
+function off(day){return vacs.filter(v=>v.from<=day&&day<=v.to&&BY[v.p])}
+function peopleOn(day){const m=new Map();off(day).sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(v=>{if(!m.has(v.p))m.set(v.p,1)});return[...m.keys()]}
+function tsOn(p,day){return Math.min(...off(day).filter(v=>v.p===p).map(v=>v.ts||0))}
+function conflicts(){
+  if(!vacs.length)return[];
+  const min=vacs.reduce((a,v)=>v.from<a?v.from:a,"9999"),max=vacs.reduce((a,v)=>v.to>a?v.to:a,"0000");
+  const out=[];let run=null;
+  for(let d=parse(min);iso(d)<=max;d.setUTCDate(d.getUTCDate()+1)){
+    const s=iso(d),ps=peopleOn(s),key=ps.join("|");
+    if(ps.length>1){
+      if(run&&run.key===key&&run.end===iso(new Date(d-864e5)))run.end=s;
+      else{run={key,ps,start:s,end:s};out.push(run)}
+    }else run=null;
+  }
+  return out;
+}
+
+// ---- render ----
+function render(){
+  renderChips();renderCal();renderSide();
+}
+function renderChips(){
+  $("chips").innerHTML=TEAM.map(t=>`<div class="chip ${hidden.has(t.id)?"off":""}" data-id="${t.id}"><span class="dot" style="background:${t.c}"></span>${esc(t.n)}</div>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(e=>e.onclick=()=>{const id=e.dataset.id;hidden.has(id)?hidden.delete(id):hidden.add(id);render()});
+}
+function renderCal(){
+  const y=cur.getUTCFullYear(),m=cur.getUTCMonth();
+  $("title").textContent=MES[m]+" "+y;
+  let h=["L","M","X","J","V","S","D"].map(d=>`<div class="dow">${d}</div>`).join("");
+  const start=new Date(Date.UTC(y,m,1));start.setUTCDate(1-((start.getUTCDay()+6)%7));
+  for(let i=0;i<42;i++){
+    const d=new Date(start);d.setUTCDate(start.getUTCDate()+i);const s=iso(d);
+    const ps=peopleOn(s),vis=ps.filter(p=>!hidden.has(p));
+    const conf=ps.length>1;
+    h+=`<div class="day ${d.getUTCMonth()!==m?"out":""} ${s===TODAY?"today":""} ${s===sel?"sel":""} ${conf?"conf":""}" data-d="${s}">
+      <div class="dn"><span>${d.getUTCDate()}</span>${conf?`<i title="Cruce">⚠${ps.length}</i>`:""}</div>
+      ${vis.slice(0,4).map(p=>`<div class="bar" style="background:${BY[p].c}">${esc(first(BY[p].n))}</div>`).join("")}
+      ${vis.length>4?`<div class="more">+${vis.length-4} más</div>`:""}</div>`;
+  }
+  $("cal").innerHTML=h;
+  $("cal").querySelectorAll(".day").forEach(e=>e.onclick=()=>{sel=sel===e.dataset.d?null:e.dataset.d;render()});
+  renderDetail();
+}
+function renderDetail(){
+  if(!sel){$("detail").innerHTML='<div class="sub">Toca un día para ver quién está de vacaciones.</div>';return}
+  const ps=peopleOn(sel);
+  $("detail").innerHTML=`<h2>${fmt(sel)}</h2>`+(ps.length?ps.map((p,i)=>`<div class="item"><span class="dot" style="background:${BY[p].c}"></span><span class="t">${ps.length>1?(i+1)+". ":""}${esc(BY[p].n)}${ps.length>1&&i===0?" ✅ prioridad":""}<br><span class="sub">Registrado: ${fmtTs(tsOn(p,sel))}</span></span></div>`).join("")+(ps.length>1?`<div class="cf" style="margin-top:6px">⚠️ Cruce: ${ps.length} personas fuera este día</div>`:""):'<div class="empty">Nadie de vacaciones este día.</div>');
+}
+function renderSide(){
+  const cs=conflicts().filter(c=>c.end>=TODAY);
+  $("conf").innerHTML=cs.length?cs.map(c=>`<div class="cf"><b>${fmt(c.start)}${c.start!==c.end?" → "+fmt(c.end):""}</b><br>${c.ps.map((p,i)=>`${i+1}. ${esc(BY[p].n)} <span class="sub">· registró ${fmtTs(tsOn(p,c.start))}${i===0?" · ✅ tiene prioridad":" · en espera"}</span>`).join("<br>")}</div>`).join(""):'<div class="empty">Sin cruces próximos 🎉</div>';
+  const l=[...vacs].filter(v=>BY[v.p]).sort((a,b)=>a.from.localeCompare(b.from));
+  $("list").innerHTML=l.length?l.map(v=>`<div class="item"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span></div><button class="x" data-id="${esc(v.id)}" title="Eliminar">✕</button></div>`).join(""):'<div class="empty">Aún no hay vacaciones registradas.</div>';
+  $("list").querySelectorAll(".x").forEach(b=>b.onclick=()=>askDelete(b.dataset.id));
+}
+
+// ---- events ----
+$("who").innerHTML=TEAM.map(t=>`<option value="${t.id}">${esc(t.n)}</option>`).join("");
+$("prev").onclick=()=>{cur.setUTCMonth(cur.getUTCMonth()-1);renderCal()};
+$("next").onclick=()=>{cur.setUTCMonth(cur.getUTCMonth()+1);renderCal()};
+$("today").onclick=()=>{cur=new Date(Date.UTC(now.getFullYear(),now.getMonth(),1));renderCal()};
+$("from").onchange=()=>{if(!$("to").value||$("to").value<$("from").value)$("to").value=$("from").value};
+function askDelete(id){
+  const v=vacs.find(x=>x.id===id);if(!v)return;
+  const clave=prompt("Solo Guillermo puede eliminar.\nClave de administrador:");
+  if(clave===null||!clave.trim())return;
+  remove(id,clave.trim());
+}
+$("add").onclick=async()=>{
+  const f=$("from").value,t=$("to").value,m=$("msg");m.style.color="var(--warn)";
+  if(!f||!t){m.textContent="Elige fecha de inicio y fin.";return}
+  if(t<f){m.textContent="La fecha final no puede ser anterior a la inicial.";return}
+  const p=$("who").value;
+  const ov=vacs.filter(v=>v.p!==p&&v.from<=t&&v.to>=f&&BY[v.p]);
+  const names=[...new Set(ov.map(v=>BY[v.p].n))];
+  if(names.length&&!confirm("Estas fechas ya están marcadas por: "+names.join(", ")+".\nEllos tienen prioridad porque registraron antes. ¿Registrar igual en lista de espera?"))return;
+  await save({id:"v"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p,from:f,to:t,note:$("note").value.trim(),ts:Date.now(),h:""});
+  m.style.color=names.length?"var(--warn)":"inherit";
+  m.textContent=names.length?"Guardado en espera. ⚠️ Se cruza con: "+names.join(", "):"Guardado ✔";
+  $("note").value="";cur=new Date(Date.UTC(+f.slice(0,4),+f.slice(5,7)-1,1));sel=f;render();
+};
+init();
+</script>
+</body>
+</html>
