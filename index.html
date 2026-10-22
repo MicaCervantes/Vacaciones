@@ -42,6 +42,8 @@ select,input{width:100%;font:inherit;padding:7px;border:1px solid var(--bd);bord
 .item:first-child{border-top:0}.item .t{flex:1;min-width:0}
 .x{padding:2px 8px;color:var(--mu)}
 .cf{background:var(--warnbg);border-left:4px solid var(--warn);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:13px}
+.badge{font-size:11px;border-radius:10px;padding:1px 8px;white-space:nowrap}.badge.pe{background:var(--warnbg);color:var(--warn)}.badge.ap{background:rgba(47,158,68,.16);color:#2f9e44}
+.item button{font-size:12px;padding:3px 8px}
 .empty{color:var(--mu);font-size:13px}
 .side{display:grid;gap:16px;align-content:start}
 #msg{font-size:12px;margin-top:6px;min-height:16px}
@@ -49,7 +51,7 @@ select,input{width:100%;font:inherit;padding:7px;border:1px solid var(--bd);bord
 </head>
 <body>
 <main>
-<header><div><h1>🏖️ Vacaciones del equipo comercial</h1><div class="sub" id="mode"></div></div></header>
+<header><div><h1>🏖️ Vacaciones del equipo comercial</h1><div class="sub" id="mode"></div></div><button id="adm">🔑 Modo gerente</button></header>
 
 <section class="card">
   <div class="nav"><button id="prev">‹</button><b id="title"></b><button id="next">›</button><button id="today">Hoy</button></div>
@@ -64,10 +66,11 @@ select,input{width:100%;font:inherit;padding:7px;border:1px solid var(--bd);bord
     <label>Comercial</label><select id="who"></select>
     <div class="row"><div><label>Desde</label><input type="date" id="from"></div><div><label>Hasta</label><input type="date" id="to"></div></div>
     <label>Nota (opcional)</label><input id="note" maxlength="60" placeholder="Ej: viaje familiar">
-    <div class="sub" style="margin-top:8px">🔒 Solo Guillermo (gerente) puede modificar o eliminar registros. Cada registro guarda fecha y hora; si hay cruce, tiene prioridad quien registró primero.</div>
+    <div class="sub" style="margin-top:8px">🔒 Si tus fechas se cruzan con las de otra persona, se envían como <b>solicitud pendiente</b> para que Guillermo (gerente) la apruebe o acuerde moverlas. Solo él puede aprobar, mover o eliminar.</div>
     <div style="margin-top:10px"><button class="pri" id="add">Guardar</button></div>
     <div id="msg"></div>
   </section>
+  <section class="card"><h2>⏳ Pendientes de aprobación</h2><div id="pend"></div></section>
   <section class="card"><h2>⚠️ Cruces de fechas</h2><div id="conf"></div></section>
   <section class="card"><h2>Vacaciones registradas</h2><div id="list"></div></section>
 </div>
@@ -95,6 +98,7 @@ function lsSet(){try{localStorage.setItem("vac",JSON.stringify(vacs))}catch(e){}
 const FLOW_LISTAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/18/workflows/4b2d249f61954eaf978f305dcebb7cd1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=1ZzZCQBwRmJnp1NFVBrplmqeUJGSQRd6J6J_VdrTj10";
 const FLOW_AGREGAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/6848aa1b87d74414872429a3149a1954/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dLdgGy0b5dxzMjx_ZGuL1cWakAIs6uUDKoDyZrravw0";
 const FLOW_ELIMINAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/29/workflows/a6b8341fed8240df929768e68201ba3a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rhTfhNaLenyWGgn8CNO1ciMDXESG77pSmQJZsXmcy6g";
+const FLOW_ACTUALIZAR="https://default4fc2f3aa31c44dcbb719c6c16393e9.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/14/workflows/92344675dc34412e97639118a4f7ba3b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=WEoYJwm9k-7OXGIVt2h4wzz32DFgEeQjD0K7bzjNPd4";
 let cloud=false;
 const idByName=Object.fromEntries(TEAM.map(t=>[t.n,t.id]));
 async function call(url,params){
@@ -107,7 +111,7 @@ const dIso=v=>{const n=Number(v);return(!isNaN(n)&&n>20000&&n<100000)?new Date(M
 const tsMs=v=>{const n=Number(v)||0;return(n>20000&&n<100000)?Math.round((n-25569)*864e5):n};
 async function load(){
   const rows=await call(FLOW_LISTAR)||[];
-  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||""}));
+  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||"",st:r.Estado==="Pendiente"?"Pendiente":"Aprobado"}));
   $("mode").textContent="🟢 En vivo: todo el equipo ve los mismos datos (se actualiza cada 8 s)";render();
 }
 async function init(){
@@ -120,12 +124,12 @@ async function init(){
 }
 function fallback(){$("mode").textContent="Modo local: los datos solo se guardan en este navegador";vacs=lsGet();render()}
 async function save(v){
-  if(cloud){try{await call(FLOW_AGREGAR,{id:v.id,comercial:BY[v.p].n,desde:v.from,hasta:v.to,nota:v.note||"",clave:"-"});await load();return}catch(e){alert("No se pudo guardar en la nube. Intenta de nuevo.");return}}
+  if(cloud){try{await call(FLOW_AGREGAR,{id:v.id,comercial:BY[v.p].n,desde:v.from,hasta:v.to,nota:v.note||"",clave:"-",estado:v.st||"Aprobado"});await load();return}catch(e){alert("No se pudo guardar en la nube. Intenta de nuevo.");return}}
   vacs.push(v);lsSet();render();
 }
 async function remove(id,clave){
   if(cloud){try{await call(FLOW_ELIMINAR,{id,clave});await load();return}
-    catch(e){alert(/403/.test(e.message)?"Clave incorrecta. Solo Guillermo puede eliminar registros.":"No se pudo eliminar. Intenta de nuevo.");return}}
+    catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo Guillermo puede eliminar registros.")}else alert("No se pudo eliminar. Intenta de nuevo.");return}}
   vacs=vacs.filter(v=>v.id!==id);lsSet();render();
 }
 
@@ -151,6 +155,7 @@ function conflicts(){
 
 // ---- render ----
 function render(){
+  $("adm").textContent=admin?"🔓 Salir de modo gerente":"🔑 Modo gerente";
   renderChips();renderCal();renderSide();
 }
 function renderChips(){
@@ -168,7 +173,7 @@ function renderCal(){
     const conf=ps.length>1;
     h+=`<div class="day ${d.getUTCMonth()!==m?"out":""} ${s===TODAY?"today":""} ${s===sel?"sel":""} ${conf?"conf":""}" data-d="${s}">
       <div class="dn"><span>${d.getUTCDate()}</span>${conf?`<i title="Cruce">⚠${ps.length}</i>`:""}</div>
-      ${vis.slice(0,4).map(p=>`<div class="bar" style="background:${BY[p].c}">${esc(first(BY[p].n))}</div>`).join("")}
+      ${vis.slice(0,4).map(p=>{const pe=pendOn(p,s);return `<div class="bar" style="background:${pe?`repeating-linear-gradient(45deg,${BY[p].c},${BY[p].c} 4px,rgba(255,255,255,.45) 4px,rgba(255,255,255,.45) 8px)`:BY[p].c}">${pe?"⏳ ":""}${esc(first(BY[p].n))}</div>`}).join("")}
       ${vis.length>4?`<div class="more">+${vis.length-4} más</div>`:""}</div>`;
   }
   $("cal").innerHTML=h;
@@ -180,12 +185,18 @@ function renderDetail(){
   const ps=peopleOn(sel);
   $("detail").innerHTML=`<h2>${fmt(sel)}</h2>`+(ps.length?ps.map((p,i)=>`<div class="item"><span class="dot" style="background:${BY[p].c}"></span><span class="t">${ps.length>1?(i+1)+". ":""}${esc(BY[p].n)}${ps.length>1&&i===0?" ✅ prioridad":""}<br><span class="sub">Registrado: ${fmtTs(tsOn(p,sel))}</span></span></div>`).join("")+(ps.length>1?`<div class="cf" style="margin-top:6px">⚠️ Cruce: ${ps.length} personas fuera este día</div>`:""):'<div class="empty">Nadie de vacaciones este día.</div>');
 }
+function itemHtml(v){
+  const pe=v.st==="Pendiente",id=esc(v.id);
+  const acts=admin?`<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">${pe?`<button data-act="ok" data-id="${id}">✅ Aprobar</button>`:""}<button data-act="mov" data-id="${id}">📅 Mover fechas</button><button data-act="del" data-id="${id}">🗑 Eliminar</button></div>`:"";
+  return `<div class="item"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b> <span class="badge ${pe?"pe":"ap"}">${pe?"⏳ Pendiente":"✅ Aprobado"}</span><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span>${acts}</div></div>`;
+}
 function renderSide(){
   const cs=conflicts().filter(c=>c.end>=TODAY);
-  $("conf").innerHTML=cs.length?cs.map(c=>`<div class="cf"><b>${fmt(c.start)}${c.start!==c.end?" → "+fmt(c.end):""}</b><br>${c.ps.map((p,i)=>`${i+1}. ${esc(BY[p].n)} <span class="sub">· registró ${fmtTs(tsOn(p,c.start))}${i===0?" · ✅ tiene prioridad":" · en espera"}</span>`).join("<br>")}</div>`).join(""):'<div class="empty">Sin cruces próximos 🎉</div>';
-  const l=[...vacs].filter(v=>BY[v.p]).sort((a,b)=>a.from.localeCompare(b.from));
-  $("list").innerHTML=l.length?l.map(v=>`<div class="item"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span></div><button class="x" data-id="${esc(v.id)}" title="Eliminar">✕</button></div>`).join(""):'<div class="empty">Aún no hay vacaciones registradas.</div>';
-  $("list").querySelectorAll(".x").forEach(b=>b.onclick=()=>askDelete(b.dataset.id));
+  $("conf").innerHTML=cs.length?cs.map(c=>`<div class="cf"><b>${fmt(c.start)}${c.start!==c.end?" → "+fmt(c.end):""}</b><br>${c.ps.map((p,i)=>`${i+1}. ${esc(BY[p].n)} <span class="sub">· registró ${fmtTs(tsOn(p,c.start))}${i===0?" · ✅ tiene prioridad":" · en espera"}${pendOn(p,c.start)?" · ⏳ pendiente":""}</span>`).join("<br>")}</div>`).join(""):'<div class="empty">Sin cruces próximos 🎉</div>';
+  const all=vacs.filter(v=>BY[v.p]).sort((a,b)=>a.from.localeCompare(b.from));
+  const pend=all.filter(v=>v.st==="Pendiente");
+  $("pend").innerHTML=pend.length?pend.map(itemHtml).join(""):'<div class="empty">No hay solicitudes pendientes.</div>';
+  $("list").innerHTML=all.length?all.map(itemHtml).join(""):'<div class="empty">Aún no hay vacaciones registradas.</div>';
 }
 
 // ---- events ----
@@ -200,6 +211,34 @@ function askDelete(id){
   if(clave===null||!clave.trim())return;
   remove(id,clave.trim());
 }
+let admin=null;
+const pendOn=(p,day)=>{const l=off(day).filter(v=>v.p===p);return l.length>0&&l.every(v=>v.st==="Pendiente")};
+$("adm").onclick=()=>{
+  if(admin){admin=null;render();return}
+  const c=prompt("Clave de administrador (solo Guillermo):");
+  if(c&&c.trim()){admin=c.trim();render()}
+};
+async function actualizar(id,desde,hasta,estado){
+  const v=vacs.find(x=>x.id===id);if(!v)return;
+  if(cloud){
+    if(!FLOW_ACTUALIZAR){alert("Falta pegar la URL del flujo de actualizar (FLOW_ACTUALIZAR) en el archivo.");return}
+    try{await call(FLOW_ACTUALIZAR,{id,desde,hasta,estado,clave:admin});await load();return}
+    catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo Guillermo puede hacer esto.")}else alert("No se pudo actualizar. Intenta de nuevo.");return}
+  }
+  Object.assign(v,{from:desde,to:hasta,st:estado});lsSet();render();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b||!admin)return;
+  const id=b.dataset.id,a=b.dataset.act,v=vacs.find(x=>x.id===id);if(!v)return;
+  if(a==="ok")actualizar(id,v.from,v.to,"Aprobado");
+  else if(a==="mov"){
+    const f=prompt("Nueva fecha de inicio (AAAA-MM-DD):",v.from);if(f===null)return;
+    const t=prompt("Nueva fecha de fin (AAAA-MM-DD):",v.to);if(t===null)return;
+    const ok=x=>/^\d{4}-\d{2}-\d{2}$/.test(x);
+    if(!ok(f)||!ok(t)||t<f){alert("Fechas no válidas. Usa el formato AAAA-MM-DD y que el fin no sea anterior al inicio.");return}
+    actualizar(id,f,t,"Aprobado");
+  }else if(a==="del"){if(confirm("¿Eliminar la solicitud de "+BY[v.p].n+"?"))remove(id,admin)}
+});
 $("add").onclick=async()=>{
   const f=$("from").value,t=$("to").value,m=$("msg");m.style.color="var(--warn)";
   if(!f||!t){m.textContent="Elige fecha de inicio y fin.";return}
@@ -207,10 +246,10 @@ $("add").onclick=async()=>{
   const p=$("who").value;
   const ov=vacs.filter(v=>v.p!==p&&v.from<=t&&v.to>=f&&BY[v.p]);
   const names=[...new Set(ov.map(v=>BY[v.p].n))];
-  if(names.length&&!confirm("Estas fechas ya están marcadas por: "+names.join(", ")+".\nEllos tienen prioridad porque registraron antes. ¿Registrar igual en lista de espera?"))return;
-  await save({id:"v"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p,from:f,to:t,note:$("note").value.trim(),ts:Date.now(),h:""});
+  if(names.length&&!confirm("Estas fechas se cruzan con: "+names.join(", ")+".\n\nTu registro se enviará como SOLICITUD PENDIENTE para que Guillermo la apruebe o acuerden mover las fechas.\n¿Enviar la solicitud?"))return;
+  await save({id:"v"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p,from:f,to:t,note:$("note").value.trim(),ts:Date.now(),h:"",st:names.length?"Pendiente":"Aprobado"});
   m.style.color=names.length?"var(--warn)":"inherit";
-  m.textContent=names.length?"Guardado en espera. ⚠️ Se cruza con: "+names.join(", "):"Guardado ✔";
+  m.textContent=names.length?"⏳ Solicitud enviada. Se cruza con: "+names.join(", ")+". Queda pendiente de aprobación de Guillermo.":"Guardado y aprobado ✔";
   $("note").value="";cur=new Date(Date.UTC(+f.slice(0,4),+f.slice(5,7)-1,1));sel=f;render();
 };
 init();
