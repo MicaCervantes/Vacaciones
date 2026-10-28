@@ -66,7 +66,7 @@ select,input{width:100%;font:inherit;padding:7px;border:1px solid var(--bd);bord
     <label>Comercial</label><select id="who"></select>
     <div class="row"><div><label>Desde</label><input type="date" id="from"></div><div><label>Hasta</label><input type="date" id="to"></div></div>
     <label>Nota (opcional)</label><input id="note" maxlength="60" placeholder="Ej: viaje familiar">
-    <div class="sub" style="margin-top:8px">🔒 Toda solicitud queda <b>pendiente</b> hasta que Guillermo (gerente) la apruebe. Si tus fechas se cruzan con las de otra persona, se marca para que él acuerde con ustedes. Solo él puede aprobar, mover o eliminar.</div>
+    <div class="sub" style="margin-top:8px">🔒 Toda solicitud queda <b>pendiente</b> hasta que un gerente (Guillermo o Marco) la apruebe o la deniegue. Si tus fechas se cruzan con las de otra persona, se marca para que acuerden con ustedes. Solo los gerentes pueden aprobar, denegar, mover o eliminar.</div>
     <div style="margin-top:10px"><button class="pri" id="add">Guardar</button></div>
     <div id="msg"></div>
   </section>
@@ -111,7 +111,7 @@ const dIso=v=>{const n=Number(v);return(!isNaN(n)&&n>20000&&n<100000)?new Date(M
 const tsMs=v=>{const n=Number(v)||0;return(n>20000&&n<100000)?Math.round((n-25569)*864e5):n};
 async function load(){
   const rows=await call(FLOW_LISTAR)||[];
-  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||"",st:r.Estado==="Aprobado"?"Aprobado":"Pendiente",ap:tsMs(r.AprobadoEl)}));
+  vacs=rows.filter(r=>r.ID&&idByName[r.Comercial]).map(r=>({id:String(r.ID),p:idByName[r.Comercial],from:dIso(r.Desde),to:dIso(r.Hasta),note:r.Nota||"",ts:tsMs(r.RegistradoEl),h:r.Clave||"",st:r.Estado==="Aprobado"?"Aprobado":r.Estado==="Denegado"?"Denegado":"Pendiente",ap:tsMs(r.AprobadoEl),by:r.AprobadoPor||""}));
   $("mode").textContent="🟢 En vivo: todo el equipo ve los mismos datos (se actualiza cada 8 s)";render();
 }
 async function init(){
@@ -129,14 +129,14 @@ async function save(v){
 }
 async function remove(id,clave){
   if(cloud){try{await call(FLOW_ELIMINAR,{id,clave});await load();return}
-    catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo Guillermo puede eliminar registros.")}else alert("No se pudo eliminar. Intenta de nuevo.");return}}
+    catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo los gerentes pueden eliminar registros.")}else alert("No se pudo eliminar. Intenta de nuevo.");return}}
   vacs=vacs.filter(v=>v.id!==id);lsSet();render();
 }
 
 async function hash(x){try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("vac|"+x));return[...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,"0")).join("")}catch(e){let h=5381;for(const c of "vac|"+x)h=((h<<5)+h+c.charCodeAt(0))|0;return"f"+h}}
 const fmtTs=t=>t?new Date(t).toLocaleString("es-PE",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"sin fecha";
 // ---- logic ----
-function off(day){return vacs.filter(v=>v.from<=day&&day<=v.to&&BY[v.p])}
+function off(day){return vacs.filter(v=>v.from<=day&&day<=v.to&&BY[v.p]&&v.st!=="Denegado")}
 function peopleOn(day){const m=new Map();off(day).sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(v=>{if(!m.has(v.p))m.set(v.p,1)});return[...m.keys()]}
 function tsOn(p,day){return Math.min(...off(day).filter(v=>v.p===p).map(v=>v.ts||0))}
 function conflicts(){
@@ -186,9 +186,10 @@ function renderDetail(){
   $("detail").innerHTML=`<h2>${fmt(sel)}</h2>`+(ps.length?ps.map((p,i)=>`<div class="item"><span class="dot" style="background:${BY[p].c}"></span><span class="t">${ps.length>1?(i+1)+". ":""}${esc(BY[p].n)} ${pendOn(p,sel)?'<span class="badge pe">⏳ Pendiente</span>':'<span class="badge ap">✅ Aprobado</span>'}${ps.length>1&&i===0?" ✅ prioridad":""}<br><span class="sub">Registrado: ${fmtTs(tsOn(p,sel))}</span></span></div>`).join("")+(ps.length>1?`<div class="cf" style="margin-top:6px">⚠️ Cruce: ${ps.length} personas fuera este día</div>`:""):'<div class="empty">Nadie de vacaciones este día.</div>');
 }
 function itemHtml(v){
-  const pe=v.st==="Pendiente",id=esc(v.id);
-  const acts=admin?`<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">${pe?`<button data-act="ok" data-id="${id}">✅ Aprobar</button>`:""}<button data-act="mov" data-id="${id}">📅 Mover fechas</button><button data-act="del" data-id="${id}">🗑 Eliminar</button></div>`:"";
-  return `<div class="item"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b> <span class="badge ${pe?"pe":"ap"}">${pe?"⏳ Pendiente":"✅ Aprobado"}</span><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span>${!pe&&v.ap?`<br><span class="sub">✅ Aprobado por Guillermo: ${fmtTs(v.ap)}</span>`:""}${acts}</div></div>`;
+  const pe=v.st==="Pendiente",de=v.st==="Denegado",id=esc(v.id);
+  const acts=admin?`<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">${v.st!=="Aprobado"?`<button data-act="ok" data-id="${id}">✅ Aprobar</button>`:""}${!de?`<button data-act="no" data-id="${id}">❌ Denegar</button>`:""}<button data-act="mov" data-id="${id}">📅 Mover fechas</button><button data-act="del" data-id="${id}">🗑 Eliminar</button></div>`:"";
+  const res=!pe&&v.ap?`<br><span class="sub">${de?"❌ Denegado":"✅ Aprobado"} por ${esc(v.by||"la gerencia")}: ${fmtTs(v.ap)}</span>`:"";
+  return `<div class="item" style="${de?"opacity:.65":""}"><span class="dot" style="background:${BY[v.p].c}"></span><div class="t"><b>${esc(BY[v.p].n)}</b> <span class="badge ${pe||de?"pe":"ap"}">${pe?"⏳ Pendiente":de?"❌ Denegado":"✅ Aprobado"}</span><br><span class="sub">${fmt(v.from)} → ${fmt(v.to)}${v.note?" · "+esc(v.note):""}</span><br><span class="sub">Registrado: ${fmtTs(v.ts)}</span>${res}${acts}</div></div>`;
 }
 function renderSide(){
   const cs=conflicts().filter(c=>c.end>=TODAY);
@@ -207,7 +208,7 @@ $("today").onclick=()=>{cur=new Date(Date.UTC(now.getFullYear(),now.getMonth(),1
 $("from").onchange=()=>{if(!$("to").value||$("to").value<$("from").value)$("to").value=$("from").value};
 function askDelete(id){
   const v=vacs.find(x=>x.id===id);if(!v)return;
-  const clave=prompt("Solo Guillermo puede eliminar.\nClave de administrador:");
+  const clave=prompt("Solo los gerentes pueden eliminar.\nClave de administrador:");
   if(clave===null||!clave.trim())return;
   remove(id,clave.trim());
 }
@@ -215,7 +216,7 @@ let admin=null;
 const pendOn=(p,day)=>{const l=off(day).filter(v=>v.p===p);return l.length>0&&l.every(v=>v.st==="Pendiente")};
 $("adm").onclick=()=>{
   if(admin){admin=null;render();return}
-  const c=prompt("Clave de administrador (solo Guillermo):");
+  const c=prompt("Clave de administrador (solo gerentes):");
   if(c&&c.trim()){admin=c.trim();render()}
 };
 async function actualizar(id,desde,hasta,estado){
@@ -223,14 +224,15 @@ async function actualizar(id,desde,hasta,estado){
   if(cloud){
     if(!FLOW_ACTUALIZAR){alert("Falta pegar la URL del flujo de actualizar (FLOW_ACTUALIZAR) en el archivo.");return}
     try{await call(FLOW_ACTUALIZAR,{id,desde,hasta,estado,clave:admin});await load();return}
-    catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo Guillermo puede hacer esto.")}else alert("No se pudo actualizar. Intenta de nuevo.");return}
+    catch(e){if(/403/.test(e.message)){admin=null;render();alert("Clave incorrecta. Solo los gerentes pueden hacer esto.")}else alert("No se pudo actualizar. Intenta de nuevo.");return}
   }
-  Object.assign(v,{from:desde,to:hasta,st:estado,ap:Date.now()});lsSet();render();
+  Object.assign(v,{from:desde,to:hasta,st:estado,ap:Date.now(),by:"la gerencia"});lsSet();render();
 }
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]");if(!b||!admin)return;
   const id=b.dataset.id,a=b.dataset.act,v=vacs.find(x=>x.id===id);if(!v)return;
   if(a==="ok")actualizar(id,v.from,v.to,"Aprobado");
+  else if(a==="no"){if(confirm("¿Denegar la solicitud de "+BY[v.p].n+"?"))actualizar(id,v.from,v.to,"Denegado")}
   else if(a==="mov"){
     const f=prompt("Nueva fecha de inicio (AAAA-MM-DD):",v.from);if(f===null)return;
     const t=prompt("Nueva fecha de fin (AAAA-MM-DD):",v.to);if(t===null)return;
@@ -246,10 +248,10 @@ $("add").onclick=async()=>{
   const p=$("who").value;
   const ov=vacs.filter(v=>v.p!==p&&v.from<=t&&v.to>=f&&BY[v.p]);
   const names=[...new Set(ov.map(v=>BY[v.p].n))];
-  if(names.length&&!confirm("Estas fechas se cruzan con: "+names.join(", ")+".\n\nTu registro se enviará como SOLICITUD PENDIENTE para que Guillermo la apruebe o acuerden mover las fechas.\n¿Enviar la solicitud?"))return;
+  if(names.length&&!confirm("Estas fechas se cruzan con: "+names.join(", ")+".\n\nTu registro se enviará como SOLICITUD PENDIENTE para que un gerente (Guillermo o Marco) la apruebe o acuerden mover las fechas.\n¿Enviar la solicitud?"))return;
   await save({id:"v"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p,from:f,to:t,note:$("note").value.trim(),ts:Date.now(),h:"",st:"Pendiente"});
   m.style.color=names.length?"var(--warn)":"inherit";
-  m.textContent=names.length?"⏳ Solicitud enviada. Se cruza con: "+names.join(", ")+". Queda pendiente de aprobación de Guillermo.":"⏳ Solicitud enviada. Queda pendiente de aprobación de Guillermo.";
+  m.textContent=names.length?"⏳ Solicitud enviada. Se cruza con: "+names.join(", ")+". Queda pendiente de aprobación de gerencia (Guillermo o Marco).":"⏳ Solicitud enviada. Queda pendiente de aprobación de gerencia (Guillermo o Marco).";
   $("note").value="";cur=new Date(Date.UTC(+f.slice(0,4),+f.slice(5,7)-1,1));sel=f;render();
 };
 init();
